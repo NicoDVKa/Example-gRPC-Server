@@ -1,24 +1,22 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+# Imagen base
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+
+# Copia los archivos del proyecto a la imagen
 WORKDIR /app
+COPY . ./
+
+# Restaura las dependencias y compila la aplicación
+RUN dotnet restore
+RUN dotnet publish -c Release -o out
+
+# Crea la imagen final y copia los archivos publicados en ella
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build-env /app/out .
+
+# Expone el puerto que escucha la aplicación
 EXPOSE 80
 EXPOSE 3000
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
-WORKDIR /src
-RUN dotnet restore "ToDoGrpc.csproj"
-COPY . .
-WORKDIR /src
-RUN dotnet build "ToDoGrpc.csproj" -c ${BUILD_CONFIGURATION} -o /app/build
-
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "ToDoGrpc.csproj" -c ${BUILD_CONFIGURATION} -o /app/publish
-
-FROM base AS final
-WORKDIR /app 
-COPY --from=publish /app/publish .
-
-
-
-ENTRYPOINT ["dotnet", "ToDoGrpc.dll"]
+# Inicia la aplicación al ejecutar la imagen
+ENTRYPOINT ["dotnet", "ToDoGrpc.dll", "--urls", "http://0.0.0.0:3000"]
